@@ -50,3 +50,69 @@ fn format_response(infos: ScrapedWebpage, format: Style) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_response_full_with_description() {
+        let webpage = ScrapedWebpage {
+            title: "Test Title".to_string(),
+            url: "https://example.com".to_string(),
+            description: Some("Test description".to_string()),
+            language: Some("en".to_string()),
+        };
+
+        // We can't easily test println! output, but we can test the logic
+        // This test verifies the function doesn't panic
+        format_response(webpage, Style::Full);
+    }
+
+    #[test]
+    fn test_format_response_full_without_description() {
+        let webpage = ScrapedWebpage {
+            title: "Test Title".to_string(),
+            url: "https://example.com".to_string(),
+            description: None,
+            language: None,
+        };
+
+        format_response(webpage, Style::Full);
+    }
+
+    #[test]
+    fn test_format_response_link_style() {
+        let webpage = ScrapedWebpage {
+            title: "Test Title".to_string(),
+            url: "https://example.com".to_string(),
+            description: Some("This description should be ignored".to_string()),
+            language: Some("en".to_string()),
+        };
+
+        format_response(webpage, Style::Link);
+    }
+
+    #[test]
+    fn test_args_default_values() {
+        // Test that our enums have the expected default behavior
+        assert_eq!(Style::Full as u8, 0); // First variant
+        assert_eq!(Format::Markdown as u8, 0); // First variant
+    }
+
+    #[test]
+    fn test_style_enum_values() {
+        // Test enum variants exist
+        let _full = Style::Full;
+        let _link = Style::Link;
+        
+        // Test they can be compared
+        assert_ne!(Style::Full, Style::Link);
+    }
+
+    #[test]
+    fn test_format_enum_values() {
+        let _markdown = Format::Markdown;
+        // When more formats are added, test them here
+    }
+}
