@@ -34,8 +34,8 @@ jobs:
             ${{ runner.os }}-cargo-test-
             ${{ runner.os }}-cargo-
 
-      - name: Install rustfmt
-        run: rustup component add rustfmt
+      - name: Install rustfmt and clippy
+        run: rustup component add rustfmt clippy
 
       - name: Run tests
         run: cargo test --verbose
