@@ -1,6 +1,7 @@
 # Scrapr CLI
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/jrollin/scrapr)
+[![CI](https://github.com/jrollin/scrapr/workflows/CI/badge.svg)](https://github.com/jrollin/scrapr/actions/workflows/ci.yml)
+[![Release](https://github.com/jrollin/scrapr/workflows/Release/badge.svg)](https://github.com/jrollin/scrapr/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)](https://www.rust-lang.org/)
 

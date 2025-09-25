@@ -1,5 +1,10 @@
 name: Release
 
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
 on:
   push:
     tags:
@@ -9,8 +14,55 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  validate:
+    name: Pre-release Validation
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ubuntu-latest-cargo-validate-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-cargo-validate-
+          ubuntu-latest-cargo-
+
+    - name: Validate Cargo.toml
+      run: cargo check --verbose
+
+    - name: Run tests
+      run: cargo test --verbose
+
+    - name: Check formatting
+      run: |
+        rustup component add rustfmt
+        cargo fmt -- --check
+
+    - name: Run clippy
+      run: |
+        rustup component add clippy
+        cargo clippy -- -D warnings
+
+    - name: Verify version tag matches Cargo.toml
+      run: |
+        TAG_VERSION=${GITHUB_REF#refs/tags/v}
+        CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+        if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
+          echo "Tag version $TAG_VERSION doesn't match Cargo.toml version $CARGO_VERSION"
+          exit 1
+        fi
+
   build:
     name: Build Release Binaries
+    needs: validate
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -43,10 +95,15 @@ jobs:
           ~/.cargo/registry
           ~/.cargo/git
           target
-        key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.target }}-cargo-release-
+          ${{ runner.os }}-${{ matrix.target }}-cargo-
+          ${{ runner.os }}-cargo-
 
     - name: Build binary
       run: cargo build --release --target ${{ matrix.target }}
+      continue-on-error: false
 
     - name: Create archive (Unix)
       if: matrix.os != 'windows-latest'
@@ -54,6 +111,7 @@ jobs:
         cd target/${{ matrix.target }}/release
         tar -czf ../../../scrapr-${{ matrix.name }}.tar.gz scrapr
         cd ../../..
+      continue-on-error: false
 
     - name: Create archive (Windows)
       if: matrix.os == 'windows-latest'
@@ -61,6 +119,7 @@ jobs:
         cd target/${{ matrix.target }}/release
         7z a ../../../scrapr-${{ matrix.name }}.zip scrapr.exe
         cd ../../..
+      continue-on-error: false
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -70,15 +129,39 @@ jobs:
           scrapr-${{ matrix.name }}.tar.gz
           scrapr-${{ matrix.name }}.zip
 
+    - name: Generate artifact attestation
+      uses: actions/attest-build-provenance@v1
+      with:
+        subject-path: |
+          scrapr-${{ matrix.name }}.tar.gz
+          scrapr-${{ matrix.name }}.zip
+
   create-release:
     name: Create GitHub Release
-    needs: build
+    needs: [validate, build]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
 
     - name: Download all artifacts
       uses: actions/download-artifact@v4
+
+    - name: Generate changelog
+      run: |
+        echo "## What's Changed" > CHANGELOG.md
+        echo "" >> CHANGELOG.md
+
+        # Get previous tag
+        PREV_TAG=$(git tag --sort=-version:refname | head -n 2 | tail -n 1)
+        if [ -z "$PREV_TAG" ]; then
+          PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+        fi
+
+        # Generate changelog from commits
+        git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD >> CHANGELOG.md
+
+        echo "" >> CHANGELOG.md
+        echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${GITHUB_REF#refs/tags/}" >> CHANGELOG.md
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
@@ -88,7 +171,7 @@ jobs:
           scrapr-windows-x86_64/scrapr-windows-x86_64.zip
           scrapr-macos-x86_64/scrapr-macos-x86_64.tar.gz
           scrapr-macos-aarch64/scrapr-macos-aarch64.tar.gz
-        generate_release_notes: true
+        body_path: CHANGELOG.md
         draft: false
         prerelease: false
       env:
@@ -96,7 +179,7 @@ jobs:
 
   publish-crates:
     name: Publish to crates.io
-    needs: build
+    needs: [validate, build]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -111,10 +194,14 @@ jobs:
           ~/.cargo/registry
           ~/.cargo/git
           target
-        key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
+        key: ubuntu-latest-cargo-publish-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-cargo-publish-
+          ubuntu-latest-cargo-
 
     - name: Login to crates.io
       run: cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
     - name: Publish to crates.io
       run: cargo publish
+      continue-on-error: false

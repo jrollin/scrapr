@@ -1,0 +1,125 @@
+name: Release Dry Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to simulate (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  dry-run:
+    name: Release Dry Run
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ubuntu-latest-cargo-dry-run-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-cargo-dry-run-
+          ubuntu-latest-cargo-
+
+    - name: Simulate tag creation
+      run: |
+        echo "Would create tag: ${{ github.event.inputs.tag }}"
+        echo "Current branch: $(git branch --show-current)"
+        echo "Current commit: $(git rev-parse HEAD)"
+
+    - name: Validate version consistency
+      run: |
+        TAG_VERSION=${{ github.event.inputs.tag }}
+        TAG_VERSION=${TAG_VERSION#v}  # Remove 'v' prefix if present
+        CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+        echo "Tag version: $TAG_VERSION"
+        echo "Cargo.toml version: $CARGO_VERSION"
+        if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
+          echo "❌ Version mismatch! Tag version $TAG_VERSION doesn't match Cargo.toml version $CARGO_VERSION"
+          exit 1
+        else
+          echo "✅ Versions match!"
+        fi
+
+    - name: Run pre-release validation
+      run: |
+        echo "Running validation checks..."
+        cargo check --verbose
+        cargo test --verbose
+        rustup component add rustfmt clippy
+        cargo fmt -- --check
+        cargo clippy -- -D warnings
+
+    - name: Simulate build for all platforms
+      run: |
+        echo "Would build for the following targets:"
+        echo "  - x86_64-unknown-linux-gnu"
+        echo "  - x86_64-pc-windows-msvc"
+        echo "  - x86_64-apple-darwin"
+        echo "  - aarch64-apple-darwin"
+
+        echo "Building for current platform as test..."
+        cargo build --release
+
+    - name: Generate changelog preview
+      run: |
+        echo "## Changelog Preview for ${{ github.event.inputs.tag }}"
+        echo "## What's Changed"
+        echo ""
+
+        # Get previous tag
+        PREV_TAG=$(git tag --sort=-version:refname | head -n 1)
+        if [ -z "$PREV_TAG" ]; then
+          PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+          echo "No previous tags found, showing all commits from first commit"
+        else
+          echo "Changes since $PREV_TAG:"
+        fi
+
+        echo ""
+        git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD
+
+        echo ""
+        echo ""
+        echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...main"
+
+    - name: Simulate crates.io publish
+      run: |
+        echo "Would publish to crates.io with:"
+        echo "  Package: $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')"
+        echo "  Version: $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
+        echo "Running dry-run..."
+        cargo publish --dry-run
+
+    - name: Summary
+      run: |
+        echo "## Dry Run Summary ✅"
+        echo ""
+        echo "- ✅ Version validation passed"
+        echo "- ✅ Pre-release validation passed"
+        echo "- ✅ Build test passed"
+        echo "- ✅ Changelog generated"
+        echo "- ✅ Crates.io dry-run passed"
+        echo ""
+        echo "Ready to release ${{ github.event.inputs.tag }}!"
+        echo ""
+        echo "To create the actual release:"
+        echo "1. git tag ${{ github.event.inputs.tag }}"
+        echo "2. git push origin ${{ github.event.inputs.tag }}"
