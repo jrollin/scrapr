@@ -2,14 +2,26 @@
 name = "scrapr"
 version = "0.1.0"
 edition = "2021"
+authors = ["jrollin <jrollin@users.noreply.github.com>"]
+license = "MIT"
+description = "A fast, reliable Rust command-line tool for extracting structured content from web pages with intelligent tracking parameter cleanup"
+homepage = "https://github.com/jrollin/scrapr"
+repository = "https://github.com/jrollin/scrapr"
+documentation = "https://docs.rs/scrapr"
+readme = "README.md"
+keywords = ["web-scraping", "cli", "metadata", "markdown", "url-cleaning"]
+categories = ["command-line-utilities", "web-programming", "text-processing"]
+exclude = [
+    "target/*",
+    ".git/*",
+    ".github/*",
+    "*.log",
+    "Cargo.lock",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# config
-dotenvy = "0.15.7"
-# log
-tracing = "0.1.37"
 reqwest = { version = "0.12.4", features = ["gzip"] }
 # Json
 serde = { version = "1.0.201", features = ["derive"] }
@@ -17,10 +29,9 @@ serde_json = "1.0.117"
 # error
 anyhow = "1.0.75"
 thiserror = "1.0.47"
-# validation
-validator = { version = "0.18.1", features = [ "derive"] }
-url = "2.5.0"
 # parsing
 webpage = { version = "2.0.1", default-features = false, features = ["serde"] }
 clap = { version = "4.4.0", features = ["derive"] }
 tokio = { version = "1.32.0", features = ["full"] }
+# validation
+url = "2.5.0"

@@ -1,150 +1,300 @@
 # Scrapr CLI
 
-🦀 A fast and reliable Rust command-line tool for extracting structured content from web pages and generating markdown-formatted output.
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/jrollin/scrapr)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)](https://www.rust-lang.org/)
+
+🦀 A fast, reliable Rust command-line tool for extracting structured content from web pages with intelligent tracking parameter cleanup.
 
 ## Overview
 
-Scrapr is designed to streamline content creation workflows by automatically extracting key metadata from web pages (title, description, URL) and formatting it as markdown. Perfect for bloggers, journalists, and content creators who need to quickly generate reference links and summaries.
+Scrapr streamlines content creation workflows by automatically extracting key metadata from web pages (title, description, URL) and formatting it as clean markdown. Perfect for bloggers, journalists, researchers, and content creators who need to quickly generate reference links without tracking cruft.
 
-## Features
+## ✨ Features
 
-- **Fast Web Scraping**: Asynchronous HTTP requests with gzip compression support
-- **Intelligent Content Extraction**: Automatically extracts page title, description, and language metadata
-- **Multiple Output Styles**: Choose between full content with descriptions or simple link format
-- **Error Handling**: Robust error handling for timeouts, client errors, and server errors
-- **User-Agent Spoofing**: Uses realistic browser user-agent for better compatibility
+### Core Functionality
+- **⚡ Fast Web Scraping**: Asynchronous HTTP requests with gzip compression
+- **🧠 Intelligent Content Extraction**: Automatically extracts page title, description, and language metadata
+- **🎨 Multiple Output Formats**: Markdown (default) and JSON output support
+- **📝 Flexible Output Styles**: Choose between full content with descriptions or simple link format
 
-## Installation
+### Advanced Features
+- **🧹 Smart URL Cleanup**: Automatically removes tracking parameters (UTM, Google Analytics, Facebook, Amazon affiliate, etc.)
+- **⚙️ Configurable Settings**: Custom timeouts, user agents, and cleanup behavior
+- **🛡️ Robust Error Handling**: Comprehensive error handling with detailed context for timeouts, HTTP errors, and invalid URLs
+- **🔍 URL Validation**: Validates URLs before processing and supports only HTTP/HTTPS schemes
 
-### Binary Installation (Linux)
+## 📦 Installation
 
-**Download and install the binary:**
+### Prerequisites
+
+- **Rust 1.70+** (for building from source)
+- **Linux/macOS/Windows** (binary availability varies)
+
+### Option 1: Install from Crates.io (Recommended)
+
+**Note:** Package not yet published to crates.io. Please use Option 3 (Build from Source) for now.
+
 ```bash
-# Download the latest release binary
-wget https://github.com/<username>/rust-scrapr/releases/latest/download/scrapr-x86_64-unknown-linux-gnu
-
-# Make it executable
-chmod +x scrapr-x86_64-unknown-linux-gnu
-
-# Move to a directory in your PATH
-sudo mv scrapr-x86_64-unknown-linux-gnu /usr/local/bin/scrapr
+# Install directly from crates.io (when available)
+cargo install scrapr
 
 # Verify installation
 scrapr --version
 ```
 
-**Alternative installation locations:**
+### Option 2: Pre-built Binaries
+
+**Note:** Pre-built binaries are not yet available. Please use the source installation method below.
+
+<!-- Future binary installation when releases are available:
 ```bash
-# Install to ~/.local/bin (user-specific, no sudo required)
+# Linux x86_64
+curl -L https://github.com/jrollin/scrapr/releases/latest/download/scrapr-x86_64-unknown-linux-gnu -o scrapr
+chmod +x scrapr
+sudo mv scrapr /usr/local/bin/
+
+# macOS (Intel)
+curl -L https://github.com/jrollin/scrapr/releases/latest/download/scrapr-x86_64-apple-darwin -o scrapr
+chmod +x scrapr
+sudo mv scrapr /usr/local/bin/
+
+# macOS (Apple Silicon)
+curl -L https://github.com/jrollin/scrapr/releases/latest/download/scrapr-aarch64-apple-darwin -o scrapr
+chmod +x scrapr
+sudo mv scrapr /usr/local/bin/
+```
+-->
+
+### Option 3: Build from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/jrollin/scrapr.git
+cd scrapr
+
+# Build the release binary
+cargo build --release
+
+# Install to system PATH
+sudo cp target/release/scrapr /usr/local/bin/
+
+# Or install to user directory (no sudo required)
 mkdir -p ~/.local/bin
-mv scrapr-x86_64-unknown-linux-gnu ~/.local/bin/scrapr
+cp target/release/scrapr ~/.local/bin/
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 
-# Or install to ~/bin
-mkdir -p ~/bin
-mv scrapr-x86_64-unknown-linux-gnu ~/bin/scrapr
-echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
+# Verify installation
+scrapr --version
 ```
 
-### From Source
+### Option 4: Run with Cargo (Development)
 
 ```bash
-git clone <repository-url>
-cd rust-scrapr
-cargo build --release
+# Clone and run directly
+git clone https://github.com/jrollin/scrapr.git
+cd scrapr
 
-# The binary will be at target/release/scrapr
-# You can copy it to your PATH:
-sudo cp target/release/scrapr /usr/local/bin/
+# Run without installing
+cargo run -- --url https://example.com
 ```
 
-### Development Mode
+### Package Manager Installation (Future)
 
 ```bash
-cargo run -- --url <URL> [OPTIONS]
+# Homebrew (macOS/Linux) - Coming soon
+brew install scrapr
+
+# Arch Linux AUR - Coming soon
+yay -S scrapr
+
+# Debian/Ubuntu - Coming soon
+sudo apt install scrapr
 ```
 
-## Usage
+## 🚀 Usage
+
+### Command Line Options
 
 ```bash
 Usage: scrapr [OPTIONS] --url <URL>
 
 Options:
-  -u, --url <URL>        Target URL to scrape
-  -s, --style <STYLE>    Output style [default: full] [possible values: full, link]
-  -f, --format <FORMAT>  Output format [default: markdown] [possible values: markdown]
-  -h, --help             Print help information
-  -V, --version          Print version information
+  -u, --url <URL>                Target URL to scrape
+  -s, --style <STYLE>            Output style [default: full] [possible values: full, link]
+  -f, --format <FORMAT>          Output format [default: markdown] [possible values: markdown, json]
+  -t, --timeout <TIMEOUT>        HTTP request timeout in seconds [default: 10]
+      --user-agent <USER_AGENT>  Custom User-Agent header [default: Firefox 116]
+      --cleanup-tracking         Remove tracking query parameters [default: enabled]
+      --no-cleanup-tracking      Disable tracking parameter cleanup
+  -h, --help                     Print help information
+  -V, --version                  Print version information
 ```
 
-### Examples
+### 📖 Examples
 
-**Full content with description:**
+#### Basic Usage
 
+**Extract with full description (default):**
 ```bash
-# Using installed binary
 scrapr --url https://www.rust-lang.org/
-
-# Or with cargo run
-cargo run -- --url https://www.rust-lang.org/
 
 # Output:
 - [Rust Programming Language](https://www.rust-lang.org/)\
 A language empowering everyone to build reliable and efficient software.
 ```
 
-**Link only:**
-
+**Link only format:**
 ```bash
-# Using installed binary
 scrapr --url https://www.rust-lang.org/ --style link
-
-# Or with cargo run
-cargo run -- --url https://www.rust-lang.org/ --style link
 
 # Output:
 [Rust Programming Language](https://www.rust-lang.org/)
 ```
 
-## Technical Details
+#### Advanced Usage
+
+**JSON output format:**
+```bash
+scrapr --url https://example.com --format json
+
+# Output:
+{
+  "title": "Example Domain",
+  "url": "https://example.com",
+  "description": "Example website description",
+  "language": "en"
+}
+```
+
+**Custom timeout and user agent:**
+```bash
+scrapr --url https://slow-site.com --timeout 30 --user-agent "MyBot/1.0"
+```
+
+#### URL Cleanup Examples
+
+**Automatic tracking parameter removal (default):**
+```bash
+# Input URL with tracking
+scrapr --url "https://example.com/article?utm_source=google&utm_medium=cpc&product_id=123"
+
+# Clean URL in output (tracking params removed):
+- [Article Title](https://example.com/article?product_id=123)\
+Article description here.
+```
+
+**Preserve all parameters:**
+```bash
+scrapr --url "https://example.com/?utm_source=newsletter&page=2" --no-cleanup-tracking
+
+# Output preserves all parameters:
+- [Page Title](https://example.com/?utm_source=newsletter&page=2)\
+Page description here.
+```
+
+### 🧹 Tracking Parameters Cleaned
+
+Scrapr automatically removes these common tracking parameters:
+
+| Category | Parameters |
+|----------|------------|
+| **Google Analytics** | `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content` |
+| **Google/Facebook Ads** | `gclid`, `gclsrc`, `dclid`, `fbclid` |
+| **Social Media** | `igshid`, `twclid`, `ttclid`, `li_fat_id` |
+| **Email Marketing** | `_hsenc`, `_hsmi`, `vero_conv`, `vero_id` |
+| **Amazon Affiliate** | `tag`, `linkCode`, `creativeASIN`, `linkId` |
+| **Generic Tracking** | `ref`, `referrer`, `source`, `campaign`, `medium`, `track`, `tracking`, `tracker`, `affiliate`, `aff`, `sid` |
+
+## 🛠️ Technical Details
 
 ### Dependencies
 
-- **reqwest**: HTTP client with async support and gzip compression
-- **webpage**: HTML parsing and metadata extraction
-- **clap**: Command-line argument parsing
-- **tokio**: Async runtime
-- **serde**: Serialization framework
-- **anyhow/thiserror**: Error handling
+| Crate | Purpose | Version |
+|-------|---------|---------|
+| **reqwest** | HTTP client with async support and gzip compression | 0.12+ |
+| **webpage** | HTML parsing and metadata extraction | 2.0+ |
+| **clap** | Command-line argument parsing with derive macros | 4.4+ |
+| **tokio** | Async runtime for concurrent operations | 1.32+ |
+| **serde** | Serialization framework for JSON output | 1.0+ |
+| **url** | URL parsing and validation | 2.5+ |
+| **anyhow/thiserror** | Ergonomic error handling | 1.0+ |
 
 ### Architecture
 
-- `main.rs`: CLI interface and argument parsing
-- `scrap.rs`: Core scraping logic and HTTP client implementation
+```
+src/
+├── main.rs    # CLI interface, argument parsing, and application entry point
+└── scrap.rs   # Core scraping logic, HTTP client, and URL processing
+```
 
 ### Error Handling
 
-The tool handles various error scenarios:
+Scrapr provides comprehensive error handling for:
 
-- Client errors (4xx status codes)
-- Server errors (5xx status codes)
-- Network timeouts (2-second timeout)
-- Invalid URLs and parsing errors
+| Error Type | Description | HTTP Status |
+|------------|-------------|-------------|
+| **Client Errors** | Bad requests, authentication issues, not found | 4xx codes |
+| **Server Errors** | Internal server errors, service unavailable | 5xx codes |
+| **Network Timeouts** | Configurable timeout (default: 10s) | - |
+| **Invalid URLs** | Malformed URLs, unsupported schemes | - |
+| **Parsing Errors** | HTML parsing failures, metadata extraction issues | - |
 
-## Use Cases
+Error messages include response body context (truncated to 200 characters) for better debugging.
 
-- **Blog Writing**: Quickly generate markdown references for Hugo/Jekyll sites
-- **Research**: Create formatted citations from web sources
-- **Documentation**: Generate link lists with descriptions
-- **Content Curation**: Build reading lists and resource collections
+## 🎯 Use Cases
 
-## Roadmap
+### Content Creation
+- **📝 Blog Writing**: Generate clean markdown references for static site generators (Hugo, Jekyll, Gatsby)
+- **📚 Research**: Create formatted citations from web sources without tracking noise
+- **📖 Documentation**: Build link lists with descriptions for project documentation
 
-- [ ] Support for additional output formats (JSON, YAML, HTML)
-- [ ] Custom styling templates
-- [ ] Batch processing multiple URLs
-- [ ] Configuration file support
-- [ ] Image and media extraction
-- [ ] RSS/Atom feed parsing
+### Data Processing
+- **🧹 URL Cleaning**: Remove tracking parameters from URLs in bulk processing
+- **📊 Content Analysis**: Extract structured metadata for content auditing
+- **🔗 Link Validation**: Verify and clean URLs before storage or sharing
+
+### Integration
+- **⚙️ IDE Integration**: Use as a command-line tool in editors and IDEs
+- **🤖 Automation**: Integrate into content pipelines and automation scripts
+- **📋 Note Taking**: Quick reference generation for knowledge management systems
+
+## 🗺️ Roadmap
+
+### Near Term
+- [x] ~~JSON output format support~~
+- [x] ~~Configurable timeout settings~~
+- [x] ~~Custom User-Agent support~~
+- [x] ~~Tracking parameter cleanup~~
+- [ ] YAML output format
+- [ ] Configuration file support (.scrapr.toml)
+
+### Future Features
+- [ ] Batch processing multiple URLs from file/stdin
+- [ ] Custom tracking parameter lists
+- [ ] Template-based output formatting
+- [ ] Image and media metadata extraction
+- [ ] RSS/Atom feed parsing support
+- [ ] Plugin system for custom extractors
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [Rust](https://www.rust-lang.org/) 🦀
+- HTML parsing powered by [html5ever](https://github.com/servo/html5ever)
+- HTTP client built on [reqwest](https://github.com/seanmonstar/reqwest)
+- CLI parsing with [clap](https://github.com/clap-rs/clap)

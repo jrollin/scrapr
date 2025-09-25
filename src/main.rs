@@ -14,6 +14,14 @@ pub struct Args {
     style: Style,
     #[arg(short, long, value_enum, default_value = "markdown")]
     format: Format,
+    #[arg(short, long, default_value = "10")]
+    timeout: u64,
+    #[arg(long, default_value = "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/116.0")]
+    user_agent: String,
+    #[arg(long, default_value_t = true, help = "Remove tracking query parameters (utm_source, etc.)")]
+    cleanup_tracking: bool,
+    #[arg(long, action = clap::ArgAction::SetFalse, help = "Disable tracking parameter cleanup")]
+    no_cleanup_tracking: bool,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -24,29 +32,40 @@ enum Style {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Format {
     Markdown,
+    Json,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
     let url = args.url;
-    let scraped = grab_url(url.as_str()).await?;
-    format_response(scraped, args.style);
+    let should_cleanup = args.cleanup_tracking && !args.no_cleanup_tracking;
+    let scraped = grab_url(url.as_str(), args.timeout, &args.user_agent, should_cleanup).await?;
+    format_response(scraped, args.style, args.format);
 
     Ok(())
 }
 
-fn format_response(infos: ScrapedWebpage, format: Style) {
+fn format_response(infos: ScrapedWebpage, style: Style, format: Format) {
     match format {
-        Style::Full => {
-            print!("- [{}]({})", infos.title, infos.url);
-            if let Some(description) = infos.description {
-                println!("\\");
-                println!("{}", description);
+        Format::Markdown => {
+            match style {
+                Style::Full => {
+                    print!("- [{}]({})", infos.title, infos.url);
+                    if let Some(description) = infos.description {
+                        println!("\\");
+                        println!("{}", description);
+                    }
+                }
+                Style::Link => {
+                    println!("[{}]({})", infos.title, infos.url);
+                }
             }
         }
-        Style::Link => {
-            println!("[{}]({})", infos.title, infos.url);
+        Format::Json => {
+            if let Ok(json) = serde_json::to_string_pretty(&infos) {
+                println!("{}", json);
+            }
         }
     }
 }
@@ -66,7 +85,7 @@ mod tests {
 
         // We can't easily test println! output, but we can test the logic
         // This test verifies the function doesn't panic
-        format_response(webpage, Style::Full);
+        format_response(webpage, Style::Full, Format::Markdown);
     }
 
     #[test]
@@ -78,7 +97,7 @@ mod tests {
             language: None,
         };
 
-        format_response(webpage, Style::Full);
+        format_response(webpage, Style::Full, Format::Markdown);
     }
 
     #[test]
@@ -90,7 +109,7 @@ mod tests {
             language: Some("en".to_string()),
         };
 
-        format_response(webpage, Style::Link);
+        format_response(webpage, Style::Link, Format::Markdown);
     }
 
     #[test]
@@ -113,6 +132,22 @@ mod tests {
     #[test]
     fn test_format_enum_values() {
         let _markdown = Format::Markdown;
-        // When more formats are added, test them here
+        let _json = Format::Json;
+
+        // Test they can be compared
+        assert_ne!(Format::Markdown, Format::Json);
+    }
+
+    #[test]
+    fn test_format_response_json() {
+        let webpage = ScrapedWebpage {
+            title: "Test Title".to_string(),
+            url: "https://example.com".to_string(),
+            description: Some("Test description".to_string()),
+            language: Some("en".to_string()),
+        };
+
+        // Test JSON format doesn't panic (style is ignored for JSON)
+        format_response(webpage, Style::Full, Format::Json);
     }
 }
