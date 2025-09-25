@@ -31,7 +31,7 @@ anyhow = "1.0.75"
 thiserror = "1.0.47"
 # parsing
 webpage = { version = "2.0.1", default-features = false, features = ["serde"] }
-clap = { version = "4.4.0", features = ["derive"] }
+clap = { version = "4.5.48", features = ["derive"] }
 tokio = { version = "1.32.0", features = ["full"] }
 # validation
 url = "2.5.0"
