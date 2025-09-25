@@ -16,9 +16,16 @@ pub struct Args {
     format: Format,
     #[arg(short, long, default_value = "10")]
     timeout: u64,
-    #[arg(long, default_value = "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/116.0")]
+    #[arg(
+        long,
+        default_value = "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/116.0"
+    )]
     user_agent: String,
-    #[arg(long, default_value_t = true, help = "Remove tracking query parameters (utm_source, etc.)")]
+    #[arg(
+        long,
+        default_value_t = true,
+        help = "Remove tracking query parameters (utm_source, etc.)"
+    )]
     cleanup_tracking: bool,
     #[arg(long, action = clap::ArgAction::SetFalse, help = "Disable tracking parameter cleanup")]
     no_cleanup_tracking: bool,
@@ -48,20 +55,18 @@ async fn main() -> Result<()> {
 
 fn format_response(infos: ScrapedWebpage, style: Style, format: Format) {
     match format {
-        Format::Markdown => {
-            match style {
-                Style::Full => {
-                    print!("- [{}]({})", infos.title, infos.url);
-                    if let Some(description) = infos.description {
-                        println!("\\");
-                        println!("{}", description);
-                    }
-                }
-                Style::Link => {
-                    println!("[{}]({})", infos.title, infos.url);
+        Format::Markdown => match style {
+            Style::Full => {
+                print!("- [{}]({})", infos.title, infos.url);
+                if let Some(description) = infos.description {
+                    println!("\\");
+                    println!("{}", description);
                 }
             }
-        }
+            Style::Link => {
+                println!("[{}]({})", infos.title, infos.url);
+            }
+        },
         Format::Json => {
             if let Ok(json) = serde_json::to_string_pretty(&infos) {
                 println!("{}", json);
@@ -124,7 +129,7 @@ mod tests {
         // Test enum variants exist
         let _full = Style::Full;
         let _link = Style::Link;
-        
+
         // Test they can be compared
         assert_ne!(Style::Full, Style::Link);
     }

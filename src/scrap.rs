@@ -33,7 +33,12 @@ pub enum ScraperError {
     InvalidUrl(String),
 }
 
-pub async fn grab_url(url: &str, timeout_secs: u64, user_agent: &str, cleanup_tracking: bool) -> Result<ScrapedWebpage> {
+pub async fn grab_url(
+    url: &str,
+    timeout_secs: u64,
+    user_agent: &str,
+    cleanup_tracking: bool,
+) -> Result<ScrapedWebpage> {
     // validate URL first
     validate_url(url)?;
     // cleanup tracking parameters if requested
@@ -73,7 +78,10 @@ async fn retrieve_html_page(url: &str, timeout_secs: u64, user_agent: &str) -> R
             let status = response.status();
 
             if status.is_client_error() {
-                let error_body = response.text().await.unwrap_or_else(|_| "Unable to read response body".to_string());
+                let error_body = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unable to read response body".to_string());
                 let error_msg = if error_body.len() > 200 {
                     format!("{}... [truncated]", &error_body[..200])
                 } else {
@@ -85,7 +93,10 @@ async fn retrieve_html_page(url: &str, timeout_secs: u64, user_agent: &str) -> R
                 )));
             }
             if status.is_server_error() {
-                let error_body = response.text().await.unwrap_or_else(|_| "Unable to read response body".to_string());
+                let error_body = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unable to read response body".to_string());
                 let error_msg = if error_body.len() > 200 {
                     format!("{}... [truncated]", &error_body[..200])
                 } else {
@@ -116,16 +127,16 @@ async fn retrieve_html_page(url: &str, timeout_secs: u64, user_agent: &str) -> R
 
 fn validate_url(url: &str) -> Result<()> {
     match Url::parse(url) {
-        Ok(parsed_url) => {
-            match parsed_url.scheme() {
-                "http" | "https" => Ok(()),
-                scheme => Err(anyhow!(ScraperError::InvalidUrl(format!(
-                    "Unsupported scheme '{}'. Only HTTP and HTTPS are supported", scheme
-                )))),
-            }
-        }
+        Ok(parsed_url) => match parsed_url.scheme() {
+            "http" | "https" => Ok(()),
+            scheme => Err(anyhow!(ScraperError::InvalidUrl(format!(
+                "Unsupported scheme '{}'. Only HTTP and HTTPS are supported",
+                scheme
+            )))),
+        },
         Err(e) => Err(anyhow!(ScraperError::InvalidUrl(format!(
-            "Failed to parse URL '{}': {}", url, e
+            "Failed to parse URL '{}': {}",
+            url, e
         )))),
     }
 }
@@ -133,31 +144,57 @@ fn validate_url(url: &str) -> Result<()> {
 fn get_tracking_params() -> &'static [&'static str] {
     &[
         // Google Analytics & Ads
-        "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-        "gclid", "gclsrc", "dclid", "fbclid",
-
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_term",
+        "utm_content",
+        "gclid",
+        "gclsrc",
+        "dclid",
+        "fbclid",
         // Social Media
-        "igshid", "twclid", "ttclid", "li_fat_id",
-
+        "igshid",
+        "twclid",
+        "ttclid",
+        "li_fat_id",
         // Email Marketing
-        "_hsenc", "_hsmi", "vero_conv", "vero_id",
-
+        "_hsenc",
+        "_hsmi",
+        "vero_conv",
+        "vero_id",
         // Other Common Trackers
-        "ref", "referrer", "source", "campaign", "medium",
-        "msclkid", "mc_cid", "mc_eid", "pk_source", "pk_medium", "pk_campaign",
-
+        "ref",
+        "referrer",
+        "source",
+        "campaign",
+        "medium",
+        "msclkid",
+        "mc_cid",
+        "mc_eid",
+        "pk_source",
+        "pk_medium",
+        "pk_campaign",
         // Amazon
-        "tag", "linkCode", "creativeASIN", "linkId",
-
+        "tag",
+        "linkCode",
+        "creativeASIN",
+        "linkId",
         // Generic tracking
-        "track", "tracking", "tracker", "affiliate", "aff", "sid"
+        "track",
+        "tracking",
+        "tracker",
+        "affiliate",
+        "aff",
+        "sid",
     ]
 }
 
 fn cleanup_tracking_params(url_str: &str) -> Result<String> {
     let mut url = Url::parse(url_str).map_err(|e| {
         anyhow!(ScraperError::InvalidUrl(format!(
-            "Failed to parse URL for cleanup '{}': {}", url_str, e
+            "Failed to parse URL for cleanup '{}': {}",
+            url_str, e
         )))
     })?;
 
@@ -299,7 +336,10 @@ mod tests {
 
         let html = html_result.unwrap();
         assert_eq!(html.title, Some("Mock Page".to_string()));
-        assert_eq!(html.description, Some("This is a mock page for testing".to_string()));
+        assert_eq!(
+            html.description,
+            Some("This is a mock page for testing".to_string())
+        );
         assert_eq!(html.language, Some("fr".to_string()));
     }
 
@@ -319,23 +359,35 @@ mod tests {
     fn test_scraper_error_display() {
         use reqwest::StatusCode;
 
-        let client_error = ScraperError::Client(StatusCode::NOT_FOUND, "https://example.com - Page not found".to_string());
+        let client_error = ScraperError::Client(
+            StatusCode::NOT_FOUND,
+            "https://example.com - Page not found".to_string(),
+        );
         let error_string = format!("{}", client_error);
         assert!(error_string.contains("Client error"));
         assert!(error_string.contains("404"));
         assert!(error_string.contains("Page not found"));
 
-        let server_error = ScraperError::Server(StatusCode::INTERNAL_SERVER_ERROR, "https://example.com - Internal error".to_string());
+        let server_error = ScraperError::Server(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "https://example.com - Internal error".to_string(),
+        );
         let error_string = format!("{}", server_error);
         assert!(error_string.contains("Server error"));
         assert!(error_string.contains("500"));
         assert!(error_string.contains("Internal error"));
 
-        let timeout_error = ScraperError::Timeout("Timeout occurred".to_string(), "https://example.com".to_string());
+        let timeout_error = ScraperError::Timeout(
+            "Timeout occurred".to_string(),
+            "https://example.com".to_string(),
+        );
         let error_string = format!("{}", timeout_error);
         assert!(error_string.contains("Timeout error"));
 
-        let other_error = ScraperError::Other("Network error".to_string(), "https://example.com".to_string());
+        let other_error = ScraperError::Other(
+            "Network error".to_string(),
+            "https://example.com".to_string(),
+        );
         let error_string = format!("{}", other_error);
         assert!(error_string.contains("Scraper error"));
     }
@@ -420,12 +472,14 @@ mod tests {
     #[test]
     fn test_cleanup_tracking_params_various() {
         // Test different types of tracking parameters
-        let url = "https://shop.example.com/item?gclid=123&fbclid=456&price=100&color=red&ref=newsletter";
+        let url =
+            "https://shop.example.com/item?gclid=123&fbclid=456&price=100&color=red&ref=newsletter";
         let cleaned = cleanup_tracking_params(url).unwrap();
         assert_eq!(cleaned, "https://shop.example.com/item?price=100&color=red");
 
         // Test Amazon tracking params
-        let amazon_url = "https://amazon.com/product?tag=mytag&linkCode=123&creativeASIN=B123&productId=456";
+        let amazon_url =
+            "https://amazon.com/product?tag=mytag&linkCode=123&creativeASIN=B123&productId=456";
         let cleaned = cleanup_tracking_params(amazon_url).unwrap();
         assert_eq!(cleaned, "https://amazon.com/product?productId=456");
     }
@@ -448,10 +502,14 @@ mod tests {
         // Test that non-tracking parameters are preserved
         let url = "https://example.com/search?q=rust&page=2&sort=date&utm_source=google";
         let cleaned = cleanup_tracking_params(url).unwrap();
-        assert_eq!(cleaned, "https://example.com/search?q=rust&page=2&sort=date");
+        assert_eq!(
+            cleaned,
+            "https://example.com/search?q=rust&page=2&sort=date"
+        );
 
         // Test with complex parameter values
-        let complex_url = "https://api.example.com/endpoint?data=%7B%22key%22%3A%22value%22%7D&utm_campaign=test";
+        let complex_url =
+            "https://api.example.com/endpoint?data=%7B%22key%22%3A%22value%22%7D&utm_campaign=test";
         let cleaned = cleanup_tracking_params(complex_url).unwrap();
         assert!(cleaned.starts_with("https://api.example.com/endpoint?data="));
         assert!(!cleaned.contains("utm_campaign"));
