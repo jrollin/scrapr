@@ -24,7 +24,7 @@ exclude = [
 [dependencies]
 reqwest = { version = "0.12.4", features = ["gzip"] }
 # Json
-serde = { version = "1.0.201", features = ["derive"] }
+serde = { version = "1.0.226", features = ["derive"] }
 serde_json = "1.0.117"
 # error
 anyhow = "1.0.75"
