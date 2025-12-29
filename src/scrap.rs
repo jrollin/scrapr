@@ -15,6 +15,7 @@ pub struct ScrapedWebpage {
     pub language: Option<String>,
 }
 
+#[derive(Debug)]
 struct HtmlPage {
     content: String,
 }
@@ -563,5 +564,327 @@ mod tests {
         let url = "https://example.com/?UTM_SOURCE=test&utm_source=test&param=keep";
         let cleaned = cleanup_tracking_params(url).unwrap();
         assert_eq!(cleaned, "https://example.com/?UTM_SOURCE=test&param=keep");
+    }
+
+    #[tokio::test]
+    async fn test_retrieve_html_page_success() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/")
+            .with_status(200)
+            .with_header("content-type", "text/html")
+            .with_body("<html><head><title>Test Page</title></head><body>Content</body></html>")
+            .create_async()
+            .await;
+
+        let result = retrieve_html_page(&server.url(), 10, "test-agent").await;
+
+        mock.assert_async().await;
+        assert!(result.is_ok());
+        let html_page = result.unwrap();
+        assert!(html_page.content.contains("Test Page"));
+    }
+
+    #[tokio::test]
+    async fn test_retrieve_html_page_client_error_404() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/notfound")
+            .with_status(404)
+            .with_body("Page not found")
+            .create_async()
+            .await;
+
+        let url = format!("{}/notfound", server.url());
+        let result = retrieve_html_page(&url, 10, "test-agent").await;
+
+        mock.assert_async().await;
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Client error"));
+        assert!(err_msg.contains("404"));
+    }
+
+    #[tokio::test]
+    async fn test_retrieve_html_page_client_error_403() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/forbidden")
+            .with_status(403)
+            .with_body("Access denied")
+            .create_async()
+            .await;
+
+        let url = format!("{}/forbidden", server.url());
+        let result = retrieve_html_page(&url, 10, "test-agent").await;
+
+        mock.assert_async().await;
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Client error"));
+        assert!(err_msg.contains("403"));
+    }
+
+    #[tokio::test]
+    async fn test_retrieve_html_page_server_error_500() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/error")
+            .with_status(500)
+            .with_body("Internal server error")
+            .create_async()
+            .await;
+
+        let url = format!("{}/error", server.url());
+        let result = retrieve_html_page(&url, 10, "test-agent").await;
+
+        mock.assert_async().await;
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Server error"));
+        assert!(err_msg.contains("500"));
+    }
+
+    #[tokio::test]
+    async fn test_retrieve_html_page_server_error_503() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/unavailable")
+            .with_status(503)
+            .with_body("Service unavailable")
+            .create_async()
+            .await;
+
+        let url = format!("{}/unavailable", server.url());
+        let result = retrieve_html_page(&url, 10, "test-agent").await;
+
+        mock.assert_async().await;
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Server error"));
+        assert!(err_msg.contains("503"));
+    }
+
+    #[tokio::test]
+    async fn test_retrieve_html_page_error_message_truncation() {
+        let mut server = mockito::Server::new_async().await;
+        let long_error = "Error ".repeat(50); // Creates a 300 char string
+        let mock = server
+            .mock("GET", "/long-error")
+            .with_status(404)
+            .with_body(&long_error)
+            .create_async()
+            .await;
+
+        let url = format!("{}/long-error", server.url());
+        let result = retrieve_html_page(&url, 10, "test-agent").await;
+
+        mock.assert_async().await;
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("[truncated]"));
+    }
+
+    #[tokio::test]
+    async fn test_retrieve_html_page_timeout() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/slow")
+            .with_status(200)
+            .with_body_from_request(|_| {
+                std::thread::sleep(std::time::Duration::from_secs(3));
+                "delayed response".into()
+            })
+            .create_async()
+            .await;
+
+        let url = format!("{}/slow", server.url());
+        let result = retrieve_html_page(&url, 1, "test-agent").await;
+
+        mock.assert_async().await;
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Timeout"));
+    }
+
+    #[tokio::test]
+    async fn test_grab_url_success() {
+        let mut server = mockito::Server::new_async().await;
+        let html_content = r#"
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <title>Integration Test Page</title>
+                <meta name="description" content="A test page for integration testing">
+                <meta property="og:url" content="https://example.com/page">
+            </head>
+            <body>
+                <h1>Test Content</h1>
+            </body>
+            </html>
+        "#;
+
+        let mock = server
+            .mock("GET", "/")
+            .with_status(200)
+            .with_header("content-type", "text/html")
+            .with_body(html_content)
+            .create_async()
+            .await;
+
+        let result = grab_url(&server.url(), 10, "test-agent", false).await;
+
+        mock.assert_async().await;
+        assert!(result.is_ok());
+
+        let scraped = result.unwrap();
+        assert_eq!(scraped.title, "Integration Test Page");
+        assert_eq!(
+            scraped.description,
+            Some("A test page for integration testing".to_string())
+        );
+        assert_eq!(scraped.language, Some("en".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_grab_url_with_tracking_cleanup() {
+        let mut server = mockito::Server::new_async().await;
+        let html_content = r#"
+            <!DOCTYPE html>
+            <html>
+            <head><title>Test</title></head>
+            <body>Content</body>
+            </html>
+        "#;
+
+        let mock = server
+            .mock("GET", "/")
+            .with_status(200)
+            .with_header("content-type", "text/html")
+            .with_body(html_content)
+            .create_async()
+            .await;
+
+        let url_with_tracking = format!("{}/?utm_source=test&utm_campaign=test", server.url());
+        let result = grab_url(&url_with_tracking, 10, "test-agent", true).await;
+
+        mock.assert_async().await;
+        assert!(result.is_ok());
+
+        let scraped = result.unwrap();
+        assert_eq!(scraped.title, "Test");
+        // URL should be cleaned (no tracking params)
+        assert!(!scraped.url.contains("utm_source"));
+        assert!(!scraped.url.contains("utm_campaign"));
+    }
+
+    #[tokio::test]
+    async fn test_grab_url_without_tracking_cleanup() {
+        let mut server = mockito::Server::new_async().await;
+        let html_content = r#"
+            <!DOCTYPE html>
+            <html>
+            <head><title>Test</title></head>
+            <body>Content</body>
+            </html>
+        "#;
+
+        let mock = server
+            .mock("GET", "/?utm_source=test")
+            .with_status(200)
+            .with_header("content-type", "text/html")
+            .with_body(html_content)
+            .create_async()
+            .await;
+
+        let url_with_tracking = format!("{}/?utm_source=test", server.url());
+        let result = grab_url(&url_with_tracking, 10, "test-agent", false).await;
+
+        mock.assert_async().await;
+        assert!(result.is_ok());
+
+        let scraped = result.unwrap();
+        // URL should NOT be cleaned when cleanup_tracking is false
+        assert!(scraped.url.contains("utm_source"));
+    }
+
+    #[tokio::test]
+    async fn test_grab_url_missing_title_fallback() {
+        let mut server = mockito::Server::new_async().await;
+        let html_content = r#"
+            <!DOCTYPE html>
+            <html>
+            <head></head>
+            <body>Content without title</body>
+            </html>
+        "#;
+
+        let mock = server
+            .mock("GET", "/")
+            .with_status(200)
+            .with_header("content-type", "text/html")
+            .with_body(html_content)
+            .create_async()
+            .await;
+
+        let result = grab_url(&server.url(), 10, "test-agent", false).await;
+
+        mock.assert_async().await;
+        assert!(result.is_ok());
+
+        let scraped = result.unwrap();
+        assert_eq!(scraped.title, "No title");
+    }
+
+    #[tokio::test]
+    async fn test_grab_url_client_error_propagation() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/")
+            .with_status(404)
+            .with_body("Not found")
+            .create_async()
+            .await;
+
+        let result = grab_url(&server.url(), 10, "test-agent", false).await;
+
+        mock.assert_async().await;
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("404"));
+    }
+
+    #[tokio::test]
+    async fn test_grab_url_server_error_propagation() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/")
+            .with_status(500)
+            .with_body("Server error")
+            .create_async()
+            .await;
+
+        let result = grab_url(&server.url(), 10, "test-agent", false).await;
+
+        mock.assert_async().await;
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("500"));
+    }
+
+    #[tokio::test]
+    async fn test_grab_url_invalid_url() {
+        let result = grab_url("not-a-valid-url", 10, "test-agent", false).await;
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Invalid URL"));
+    }
+
+    #[tokio::test]
+    async fn test_grab_url_unsupported_scheme() {
+        let result = grab_url("ftp://example.com", 10, "test-agent", false).await;
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Unsupported scheme"));
     }
 }
