@@ -34,7 +34,7 @@ webpage = { version = "2.0.1", default-features = false, features = ["serde"] }
 clap = { version = "4.5.54", features = ["derive"] }
 tokio = { version = "1.49.0", features = ["full"] }
 # validation
-url = "2.5.2"
+url = "2.5.8"
 
 [dev-dependencies]
 mockito = "1.7.1"
