@@ -170,7 +170,7 @@ jobs:
         echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${GITHUB_REF#refs/tags/}" >> CHANGELOG.md
 
     - name: Create Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         files: |
           scrapr-linux-x86_64/scrapr-linux-x86_64.tar.gz
